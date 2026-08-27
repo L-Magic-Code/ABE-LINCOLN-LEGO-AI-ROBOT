@@ -1,0 +1,22 @@
+{
+    "auto_camera_start": true,
+    "default_tracking_mode": "face",
+    "vision_trigger_words": [
+        "can you see",
+        "do you see",
+        "look at",
+        "where is",
+        "what is this",
+        "in my hand",
+        "desk",
+        "desktop",
+        "workspace",
+        "in front of you",
+        "this is",
+        "that is",
+        "here is",
+        "use you vision",
+        "holding"
+    ]
+
+}

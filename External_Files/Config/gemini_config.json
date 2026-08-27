@@ -1,0 +1,6 @@
+{
+    "prompt_file_path": "AbeOS 1.0/External_Files/ai_prompt.txt",
+    "chat_history_file_path": "External_Files/chat_history.txt",
+    "gemini_model": "gemini-2.5-flash",
+    "path_to_gemini_api_key": "GEMINI_API_KEY_FILE"
+}

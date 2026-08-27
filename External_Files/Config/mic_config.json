@@ -1,0 +1,17 @@
+{
+    "listening-timeout" : 45,
+    "listen-trigger-words": [
+        "hey abraham lincoln",
+        "abe",
+        "abraham",
+        "lincoln",
+        "president",
+        "robot",
+        "listen",
+        "honest abe"
+    ],
+    "use_mic": true,
+    "vosk_file_type": "small",
+    "vosk_small_file": "PROJECT_ROOT/External_Files/vosk-small-model",
+    "vosk_large_file": "PROJECT_ROOT//vosk-large-model"
+}

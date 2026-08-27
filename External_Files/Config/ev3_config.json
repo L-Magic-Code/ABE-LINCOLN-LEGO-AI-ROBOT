@@ -1,0 +1,29 @@
+{
+    "EV3_HEAD_HUB_ADDRESS" : "00:16:53:50:23:3B",
+    "EV3_ARMS_HUB_ADDRESS" : "00:16:53:46:BE:AF",
+    
+    "EYEBROWS_PORT" : "PORT_A",
+    "MOUTH_CORNERS_PORT" : "PORT_B",
+    "EYES_PORT" : "PORT_C",
+    "MOUTH_PORT" : "PORT_D",
+    
+    "LEFT_ARM_PORT" : "PORT_A",
+    "LEFT_HAND_PORT" : "PORT_B",
+    "RIGHT_ARM_PORT" : "PORT_C",
+    "RIGHT_HAND_PORT" : "PORT_D",
+    
+    "RIGHT_ARM_ROTATE_PORT" : "A",
+    "CHEST_MOTOR_PORT" : "B",
+    "LEFT_ARM_ROTATE_PORT" : "C",
+
+    "LEFT_FINGERS_PORT" : "PORT_1",
+    "RIGHT_FINGERS_PORT" : "PORT_4",
+
+
+    "left_hand_empty": false,
+    "right_hand_empty": false,
+    
+    "mouth_corners_speed" : 25,
+    "gettysburg_address_file_path": "PROJECT_ROOT/External_Files/gettysburg_address.txt",
+    "voice" : "en-US-AndrewNeural"
+}

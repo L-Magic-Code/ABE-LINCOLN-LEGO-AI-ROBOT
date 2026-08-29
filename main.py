@@ -1,4 +1,3 @@
-#Hello
 def main():
     import time
     from AbeFunctions import ev3_functions
@@ -8,20 +7,23 @@ def main():
     from AbeFunctions import extra_functions
     import time
     import json
+    import pathlib
 
-    with open("AbeOS 1.0/External_Files/Config/mic_config.json", "r") as opened_file:
+    BASE_DIR = pathlib.Path(__file__).resolve().parent
+
+    with open(BASE_DIR / "External_Files" / "Config" / "mic_config.json", "r",  encoding="utf-8") as opened_file:
         config = json.load(opened_file)
 
-    abe = ev3_functions.Abe(use_mindstorms=True)
+    abe = ev3_functions.Abe(use_mindstorms=False)
     gemini = gemini_functions.AI()
-    vision = vision_functons.Vision(abe, use_mindstorms=True)
+    vision = vision_functons.Vision(abe, use_mindstorms=False)
     vision.start_camera_windows_loop(thread=True)
     mic = mic_functions.Mic(debug_level=2)
     mic.start_listening()
     time.sleep(1)
 
     while True:
-        print("[main] Say \"Hey Abe\" to start talking to Abe!")
+        print("[main] Say \"Hey Abraham Lincoln\" to start talking to Abe!")
         mic.wait_for_trigger_word(config["listen-trigger-words"])
         print("[main] Abe is listening!")
         timer = time.time()
@@ -40,7 +42,7 @@ def main():
                 emotion, function, response = gemini.get_response(prompt, image, trigger_word)
             else:
                 emotion, function, response = gemini.get_response(prompt)
-            #extra_functions.cool_print(f"[main] Abe: {emotion} {function} {response}", 2, thread=True)
+            extra_functions.cool_print(f"[main] Abe: {emotion} {function} {response}", 2, thread=True)
             abe.say(response)
             timer = time.time() 
 

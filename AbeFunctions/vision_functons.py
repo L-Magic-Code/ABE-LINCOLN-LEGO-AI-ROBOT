@@ -8,6 +8,7 @@ from PIL import Image
 import picamera2
 import threading
 import random
+import pathlib
 
 class Vision:
     def __init__(self, abe : object = None, use_mindstorms=None):
@@ -15,8 +16,9 @@ class Vision:
         Abe's main vision class.
         Accepts 'Abe' class from ev3_functions.py.
         """
-
-        with open("AbeOS 1.0/External_Files/Config/vision_config.json", "r") as opened_file:
+        BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
+        self.pathlib_config_file = BASE_DIR / "External_Files" / "Config" / "vision_config.json"
+        with open(self.pathlib_config_file, "r", encoding="utf-8") as opened_file:
             self.config = json.load(opened_file)
 
         self.capture_frame = self.config["auto_camera_start"]

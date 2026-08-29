@@ -6,20 +6,27 @@ import cv2
 import pathlib
 
 class AI:
-    def __init__(self):
+    def __init__(self, debug_level=1):
         """
         Sets up the genai client, api key, and chat.
         """
-        with open("AbeOS 1.0/External_Files/Config/gemini_config.json", "r") as config_file:
-            self.config_str = config_file.read()
-        self.config = json.loads(self.config_str)
-        with open(self.config["path_to_gemini_api_key"]) as open_file:
+        self.debug_level = debug_level
+        if self.debug_level > 1:
+            print("[gemini_functions] [Info] Starting...")
+        
+
+        BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
+
+        self.pathlib_config_file = BASE_DIR / "External_Files" / "Config" / "gemini_config.json"
+        with open(self.pathlib_config_file, "r", encoding="utf-8") as config_file:
+            self.config = json.load(config_file)
+
+        self.pathlib_api_key_file = BASE_DIR / pathlib.Path(self.config["path_to_gemini_api_key"])
+        with open(self.pathlib_api_key_file, "r", encoding="utf-8") as open_file:
             self.client = genai.Client(api_key=open_file.read())
 
         raw_prompt_file = self.config["prompt_file_path"]
-        base_direcotry = pathlib.Path(__file__).resolve().parent
-
-        file = base_direcotry / raw_prompt_file
+        file = BASE_DIR / pathlib.Path(raw_prompt_file)
 
         self.chat = self.client.chats.create(
             model=self.config["gemini_model"],
@@ -30,13 +37,14 @@ class AI:
 
 
         self.possible_emotions = ["happy", "sad", "neutral", "surprised", "mad", "scared"]
-        print("[gemini_functions] set up the client and Abe's chat!")
+        if self.debug_level > 0:
+            print("[gemini_functions] [Info] set up the client and Abe's chat!")
 
     def get_file_text(self, file) -> str:
         """
         Reads the "file" attribute and returns the file's text.
         """
-        with open(file, "r") as open_file:
+        with open(file, "r", encoding="utf-8") as open_file:
             self.file_text = open_file.read()
         return self.file_text
     

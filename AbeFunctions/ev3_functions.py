@@ -16,9 +16,14 @@ import pathlib
 class Abe:
     """Connects to both ev3s, and sets up motors and sensors, if use_mindstorms in the ev3_config is True."""
     def __init__(self, use_mindstorms=True, debug_level=1):
-        print("[ev3_functions] [Info_debug] Starting...")
+        self.debug_level = debug_level 
+        if self.debug_level > 1:
+            print("[ev3_functions] [Info_debug] Starting...")
+
         self.use_mindstorms = use_mindstorms
-        with open("AbeOS 1.0/External_Files/Config/ev3_config.json", "r") as ev3_config_file:
+        BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
+        self.pathlib_config_file = BASE_DIR / "External_Files" / "Config" / "ev3_config.json"
+        with open(self.pathlib_config_file, "r", encoding="utf-8") as ev3_config_file:
             self.config =  json.load(ev3_config_file)
         if self.use_mindstorms:
 #           -- Connect to EV3 head hub --
@@ -363,13 +368,13 @@ class Abe:
         """
         Allows you to easily change a value or add a key in the ev3_config.
         """
-        with open("AbeOS 1.0/External_Files/Config/ev3_config.json", "r") as config_file:
+        with open(self.pathlib_config_file, "r", encoding="utf-8") as config_file:
             self.config_str = config_file.read()
 
         self.config = json.loads(self.config_str)
         self.config[key] = property
 
-        with open("AbeOS 1.0/External_Files/Config/ev3_config.json", "w") as file:
+        with open(self.pathlib_config_file, "w", encoding="utf-8") as file:
             json.dump(self.config, file, indent=4)
                         
     def grab(self):
@@ -418,11 +423,11 @@ class Abe:
 
     def deliver_gettysburg_address(self):
         raw_prompt_file = self.config["prompt_file_path"]
-        base_direcotry = pathlib.Path(__file__).resolve().parent
+        base_directory = pathlib.Path(__file__).resolve().parent.parent
 
-        file = base_direcotry / raw_prompt_file
+        file = base_directory / pathlib.Path(raw_prompt_file)
 
-        with open(file) as open_file:
+        with open(file, "r", encoding="utf-8") as open_file:
             gettysburg_address = open_file.read()
 
         if self.use_mindstorms:

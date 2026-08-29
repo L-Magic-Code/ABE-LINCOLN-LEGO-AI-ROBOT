@@ -2,6 +2,7 @@ import vosk
 import json
 import sounddevice
 import time
+import pathlib
 
 class Mic:
     def __init__(self, debug_level=1):
@@ -13,7 +14,10 @@ class Mic:
         if self.debug_level > 1:
             print("[mic_functions] [Info_debug] Starting...")
 
-        with open("AbeOS 1.0/External_Files/Config/mic_config.json", "r") as config_file:
+
+        BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
+        self.pathlib_config_file = BASE_DIR / "External_Files" / "Config" / "mic_config.json"
+        with open(self.pathlib_config_file, "r") as config_file:
             self.config = json.load(config_file)
 
         if self.config["vosk_file_type"] == "small":

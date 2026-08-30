@@ -27,8 +27,12 @@ def cool_print(text : str, print_time : int=1, thread : bool=False):
     if thread:
         threading.Thread(target=_cool_print, args=[text, print_time]).start()
     else:
-        _cool_print(text=text, ptime=print_time)
+        _cool_print(text=text, print_time=print_time)
+
+def print_red(text):
+    print("\033[0;31m" + str(text) + "\033[0m")
 
 if __name__ == '__main__':
+    print_red("OH NO!")
     cool_print("Hello World! This is a code that was made for Abe!", 3)
     

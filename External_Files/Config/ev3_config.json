@@ -18,6 +18,7 @@
 
     "LEFT_FINGERS_PORT" : "PORT_1",
     "RIGHT_FINGERS_PORT" : "PORT_4",
+    "EV3_KEY_PORT" : "PORT_3",
 
 
     "left_hand_empty": false,

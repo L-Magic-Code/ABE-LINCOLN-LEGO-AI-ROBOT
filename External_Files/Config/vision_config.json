@@ -23,11 +23,13 @@
 
     "front_camera_type" : "regular_camera",
     "force_front_camera" : false,
-    "front_camera_port" : "http://192.168.1.167:4747/video",
+    "front_camera_port" : 0,
     "show_front_feed" : true,
  
     "desk_camera_type" : "raspberry_pi_camera",
-    "force_desk_camera" : true,    
+    "force_desk_camera" : false,    
     "desk_camera_port" : null,
-    "show_desk_feed" : true
+    "show_desk_feed" : true,
+
+    "gemini_camera" : "desk"
 }

@@ -9,10 +9,11 @@ import picamera2
 import threading
 import random
 import pathlib
-from extra_functions import print_red
+from .extra_functions import print_red
 import numpy
 
 class Camera:
+    black_img = numpy.zeros((720, 1280, 3), numpy.uint8)
     def __init__(self, camera_type, port=None, debug_level=1, force=False):
         """
         Returns Camera object. 
@@ -29,7 +30,8 @@ class Camera:
 
         self.black_frame = numpy.zeros((720, 1280, 3), numpy.uint8)
 
-        cv2.putText(self.black_frame, "CAMERA NOT CONNECTED", (360, 360), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 1, cv2.LINE_AA)
+        cv2.putText(self.black_frame, "CAMERA NOT CONNECTED", (360, 360), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.rectangle(self.black_frame, (325, 280), (925, 400), (255, 255, 2550), 2,  cv2.LINE_AA)
 
         self.force = force
 
@@ -119,7 +121,6 @@ class Camera:
     def start_capture_loop(self):
         threading.Thread(target=self._loop).start()
 
-
 class Vision:
     def __init__(self, abe : object = None, use_mindstorms=None, debug_level=1):
         """
@@ -159,6 +160,7 @@ class Vision:
             if self.debug_level == 1:
                 print("[vision_functions] [Info] Ignoring all desk camera functions!")
 
+
         self.mp_hands = mediapipe.solutions.hands
         self.hands = self.mp_hands.Hands(max_num_hands=1, min_detection_confidence=.75, static_image_mode=False)
         self.face = mediapipe.solutions.face_detection.FaceDetection()
@@ -191,9 +193,10 @@ class Vision:
                 if self.frame is None:
                     time.sleep(.01)
                     continue
-                    
 
-                self.frame = cv2.flip(self.frame, 1)
+                if self.front_camera.stable:
+                    self.frame = cv2.flip(self.frame, 1)
+
 
                 if self.camera_tracking_mode == 'face':
                     self.results = self.face.process(self.frame)
@@ -254,7 +257,7 @@ class Vision:
         """
         self.frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         self.output = "You see: "
-        self.frame = Image.fromarray(self.capture_frame)
+        self.frame = Image.fromarray(self.frame)
         self.result = self.detect_object(frame, verbose=False)[0]
         for x in self.result.boxes:
             self.output = self.output + "a " + str(self.result.names[int(x.cls)] + ", ")
@@ -272,6 +275,26 @@ class Vision:
             if random.randrange(0, 1) == 0:
                 return True, "hello / hi"
         return False, None
+    def get_gemini_img(self):
+        """
+        Returns: a frame to send to gemini based on config prefrences
+        """
+        if self.config["gemini_camera"] == 'front':
+            return self.front_camera.get_frame()
+        elif self.config["gemini_camera"] == 'desk':
+            return self.desk_camera.get_frame()
+        else:
+            if self.debug_level > 0:
+                print_red(f"[vision_functions] [ERROR] 'gemini_camera' in config must be either 'front' or 'desk', not {self.config['gemini_camera' ]}!")
+            return Camera.black_img
+    def complete_vision_function(self, function : str=''):
+        """
+        Completes one of the vision functions.
+        """
+        if function == 'look_at_users_hand':
+            self.camera_tracking_mode = 'hand'
+        elif function == 'look_at_users_face':
+            self.camera_tracking_mode = 'face'
 
 if __name__ == "__main__":
     vision = Vision(debug_level=2)

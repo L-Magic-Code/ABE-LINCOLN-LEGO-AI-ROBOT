@@ -68,6 +68,8 @@ class Abe:
 
             self.left_fingers = ev3.Touch(port=getattr(ev3, self.config["LEFT_FINGERS_PORT"]), ev3_obj=self.ev3_head_hub)
             self.right_fingers  = ev3.Touch(port=getattr(ev3, self.config["RIGHT_FINGERS_PORT"]), ev3_obj=self.ev3_head_hub)
+            self.key_sensor  = ev3.Touch(port=getattr(ev3, self.config["EV3_KEY_PORT"]), ev3_obj=self.ev3_head_hub)
+                        
 
 
 #           -- Connect to motors and sensors from the nxt hub --
@@ -226,11 +228,25 @@ class Abe:
 
             self.right_arm_rotate.brake()
             self.right_arm_rotate.reset_position(relative=False)
-            self.rotate_arm('right', 2)
-            self.rotate_arm('left', 2)
+            try:
+                self.rotate_arm('right', 2)
+            except:
+                pass
+
+            try:
+                self.rotate_arm('left', 2)
+            except:
+                pass
 
             if self.debug_level > 1:
                 print("[ev3_functions] [debug] Homed arms!")
+
+    def wait_for_key_insert(self):
+        """
+        Wait for the key to be inserted.
+        """
+        while not self.key_sensor.touched:
+            time.sleep(0.1)
             
     def say(self, text:str, degrees_add:int=0, intensity_add:int=0, emotion=None):
         """
@@ -521,7 +537,7 @@ class Abe:
     def complete_mindstorms_function(self, function : str=''):
         """
         Completes one of these functions:
-        "grab_something", "wave", "drop_item_in_right_hand", "drop_item_in_left_hand"
+        "grab_something", "wave", "drop_item_in_right_hand", "drop_item_in_left_hand", "open_chest", or "close_chest"
         """
         if self.use_mindstorms:
             function = function.lower()
@@ -534,6 +550,20 @@ class Abe:
 
             elif function == 'wave':
                 self.wave()
+
+            elif function == 'open_chest':
+                self.open_chest()
+
+            elif function == 'close_chest':
+                self.close_chest()
+
+            elif function == 'drop_item_in_right_hand':
+                if not self.right_hand_empty:
+                    self.open_hand(self.right_hand)
+
+            elif function == 'drop_item_in_left_hand':
+                if not self.left_hand_empty:
+                    self.open_hand(self.left_hand)
 
 if __name__ == "__main__":
     abe = Abe(use_mindstorms=True, debug_level=2)

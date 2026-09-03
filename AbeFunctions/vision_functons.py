@@ -1,6 +1,5 @@
 import cv2
 import json
-import mediapipe
 import time
 import math
 import ultralytics
@@ -9,8 +8,13 @@ import picamera2
 import threading
 import random
 import pathlib
-from .extra_functions import print_red
+if __name__ == '__main__':
+    from extra_functions import print_red
+else:
+    from .extra_functions import print_red
 import numpy
+import cvzone.FaceDetectionModule
+import cvzone.HandTrackingModule
 
 class Camera:
     black_img = numpy.zeros((720, 1280, 3), numpy.uint8)
@@ -161,10 +165,9 @@ class Vision:
                 print("[vision_functions] [Info] Ignoring all desk camera functions!")
 
 
-        self.mp_hands = mediapipe.solutions.hands
-        self.hands = self.mp_hands.Hands(max_num_hands=1, min_detection_confidence=.75, static_image_mode=False)
-        self.face = mediapipe.solutions.face_detection.FaceDetection()
-        self.mediapipe_draw = mediapipe.solutions.drawing_utils
+        self.hand_tracking = cvzone.HandTrackingModule.HandDetector(maxHands=2, detectionCon=.75)
+        self.face_tracking = cvzone.FaceDetectionModule.FaceDetector(minDetectionCon=.75)
+
         self.camera_tracking_mode = self.config["default_tracking_mode"]
         self.run_camera_loop = True
         self.capture_frame = True
@@ -173,6 +176,19 @@ class Vision:
         self.use_mindstorms = use_mindstorms
         self.include_desk_feed = self.config["show_desk_feed"]
         self.include_front_feed = self.config["show_front_feed"]
+
+    def get_float_coords(self, frame, x, y):
+        """
+        Arguments: frame, and x and y pixel coordinates
+        Returns: 
+            Tuple:
+                x and y converted to a float from 0.0 to 1.0
+        """
+        height, width, _ = frame.shape
+        x = x / width
+        y = y / height
+        return (x, y)
+
 
     def _camera_windows_loop(self):
         """
@@ -185,8 +201,10 @@ class Vision:
 
         while self.run_camera_loop:
             if self.use_front_camera:
+                self.tracking = False
                 if self.capture_frame == True:
                     self.frame = self.front_camera.latest_frame
+                    self.frame = cv2.flip(self.frame, 1)
                 else:
                     time.sleep(.01)
                     continue
@@ -194,46 +212,55 @@ class Vision:
                     time.sleep(.01)
                     continue
 
-                if self.front_camera.stable:
-                    self.frame = cv2.flip(self.frame, 1)
-
 
                 if self.camera_tracking_mode == 'face':
-                    self.results = self.face.process(self.frame)
-                    if self.results.detections:
-                        self.result = self.results.detections[0]
-                        self.keypoints = self.result.location_data.relative_keypoints
-                        self.nose = self.keypoints[2]
-                        self.nose_x = self.nose.x - .5
-                        self.nose_y = (self.nose.y - .4) * -1
-                        self.raw_degrees = math.degrees(math.atan2(self.nose_y, self.nose_x))
-                        self.degrees = (self.raw_degrees + 360) % 360
-                        self.degrees = round(self.degrees)
-                        if self.use_mindstorms:
-                            if self.move_eyes:
-                                if abs((self.degrees - self.abe.eyes.position + 180) % 360 - 180) >= 25:
-                                    if not self.abe.eyes.busy:
-                                        self.abe.move_eyes_to_position(position=self.degrees)
-                        self.mediapipe_draw.draw_detection(self.frame, self.result)
+                    _, self.results = self.face_tracking.findFaces(self.frame, draw=False)
+                    if self.results:
+                        self.tracking = True
+                        self.label = 'Face'
+                        self.result = self.results[0]
+                        self.bbox = self.result["bbox"]   
 
-                elif self.camera_tracking_mode == 'hand':
-                    self.results = self.hands.process(self.frame)
-                    if self.results.multi_hand_landmarks:
-                        self.result = self.results.multi_hand_landmarks[0]
-                        self.center = self.result.landmark[9]
-                        self.center_x = self.center.x - .5
-                        self.center_y = (self.center.y - .4) * -1
-                        self.raw_degrees = math.degrees(math.atan2(self.center_y, self.center_x))
-                        self.degrees = (self.raw_degrees + 360) % 360
-                        self.degrees = round(self.degrees)
-                        if self.use_mindstorms:
-                            if self.move_eyes:
-                                if abs((self.degrees - self.abe.eyes.position + 180) % 360 - 180) >= 25:
-                                    if not self.abe.eyes.busy:
-                                        self.abe.move_eyes_to_position(position=self.degrees)
-                        self.mediapipe_draw.draw_landmarks(self.frame, self.result, self.mp_hands.HAND_CONNECTIONS)
-                if self.include_front_feed:
-                    cv2.imshow("Front Camera", self.frame)
+
+                elif self.camera_tracking_mode in ['hands', 'left hand', 'right hand']:
+                    self.results, _ = self.hand_tracking.findHands(self.frame, draw=False)
+                    if self.results:
+
+                        if self.camera_tracking_mode == 'hands':
+                            self.tracking = True
+                            self.label = 'Hand'
+                            self.result = self.results[0]
+                            self.bbox = self.result["bbox"]            
+
+                        else:
+                            if self.camera_tracking_mode == 'left hand':
+                                search = 'Left'
+                                self.label = 'Left Hand'
+                            elif self.camera_tracking_mode == 'right hand':
+                                search = 'Right'
+                                self.label = 'Right Hand'
+                            for hand in self.results:
+                                if hand['type'] == search:
+                                    self.tracking = True
+                                    self.bbox = hand["bbox"]            
+                                    break
+
+
+
+            
+            if self.include_front_feed:
+                if self.tracking:
+                    self.center_x = self.bbox[0] + self.bbox[2] / 2
+                    self.center_y = self.bbox[1] + self.bbox[3] / 2
+                    self.center_x, self.center_y = self.get_float_coords(self.frame, self.center_x, self.center_y)
+
+                    self.abe.look_at_coord(self.center_x, self.center_y)
+                    x, y, width, height = self.bbox
+                    cv2.rectangle(self.frame, (x, y), (x + width, y + height), (0, 255, 0), 2, cv2.LINE_AA)
+                    cv2.putText(self.frame, self.label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, .8, (0, 255, 0), 5, cv2.LINE_AA, False)
+
+                cv2.imshow("Front Camera", self.frame)
+                
                 
             if self.use_desk_camera:
                 self.desk_frame = self.desk_camera.get_frame()
@@ -241,7 +268,7 @@ class Vision:
                     cv2.imshow("Desk Camera", self.desk_frame)
             cv2.waitKey(1)
 
-    def start_camera_windows_loop(self, thread : bool=True, include_desk_camera_feed=True):
+    def start_camera_windows_loop(self, thread : bool=True):
         """
         Starts tracking faces or hands, and opens preview windows.
         Uses threading if 'thread' argument is True.
@@ -291,10 +318,17 @@ class Vision:
         """
         Completes one of the vision functions.
         """
-        if function == 'look_at_users_hand':
-            self.camera_tracking_mode = 'hand'
+        if function == 'look_at_one_of_users_hands':
+            self.camera_tracking_mode = 'hands'
+        elif function == 'look_at_users_left_hand':
+            self.camera_tracking_mode = 'left hand'
+        elif function == 'look_at_users_right_hand':
+            self.camera_tracking_mode = 'right hand'
         elif function == 'look_at_users_face':
             self.camera_tracking_mode = 'face'
+        else:
+            if self.debug_level > 0:
+                print_red(f"[vision_functions] [ERROR] Unknown vision function: {function}")
 
 if __name__ == "__main__":
     vision = Vision(debug_level=2)

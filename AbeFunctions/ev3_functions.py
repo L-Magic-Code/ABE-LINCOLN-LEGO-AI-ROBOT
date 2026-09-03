@@ -12,6 +12,7 @@ import nxt.locator
 import nxt.motor
 import tempfile
 import pathlib
+import math
 
 class Abe:
     """Connects to both ev3s, and sets up motors and sensors, if use_mindstorms in the ev3_config is True."""
@@ -188,8 +189,31 @@ class Abe:
             else:
                 print(f"[ev3_functions] Ignonoring unknown emotion: {self.emotion}!")
 
+    def look_at_coord(self, x, y):
+        self.center_x = x - .5
+        self.center_y = (y - .5) * -1
+        self.raw_degrees = math.degrees(math.atan2(self.center_y, self.center_x))
+        self.degrees = (self.raw_degrees + 360) % 360
+        self.degrees = round(self.degrees)
+        if self.use_mindstorms:
+            if abs((self.degrees - (self.eyes.position * 1.65 % 360) + 180) % 360 - 180) >= 25:
+                if not self.eyes.busy:
+                    self.move_eyes_to_position(position=self.degrees)
+
+    def stop_all_motors(self):
+        if self.use_mindstorms:
+            ev3_motor_list = [self.eyes, self.eyebrows, self.mouth, self. mouth_corners, self.left_arm, self.right_arm, self.left_hand, self.right_hand]
+            nxt_motor_list = [self.chest_motor, self.right_arm_rotate, self.left_arm_rotate]
+
+            for motor in ev3_motor_list:
+                motor.stop(brake=False)
+
+            for motor in nxt_motor_list:
+                motor.idle()
+
     def home_motors(self):
         if self.use_mindstorms:
+            self.stop_all_motors()
 #           -- Home eyebrows --
             if self.eyebrows.position >= 5 or self.eyebrows.position <= -5:
                 self.eyebrows.move_to(position=1, brake=True).start(thread=False)

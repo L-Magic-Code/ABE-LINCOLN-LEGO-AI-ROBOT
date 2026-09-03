@@ -1,5 +1,5 @@
 {
-    "use_mic": false,
+    "use_mic": true,
     "listening-timeout" : 45,
     "listen-trigger-words": [
         "hey abraham lincoln",

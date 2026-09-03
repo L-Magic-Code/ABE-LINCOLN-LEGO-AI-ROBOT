@@ -41,7 +41,7 @@ class function_calling_handeler:
     def __init__(self, ev3_function_handeler, vision_function_handeler):
         self.ev3_function_handeler = ev3_function_handeler
         self.vision_function_handeler = vision_function_handeler
-        self.vision_functions = ['look_at_users_hand', 'look_at_users_face']
+        self.vision_functions = ['look_at_users_hand', 'look_at_users_face', 'look_at_users_right_hand', 'look_at_users_left_hand']
         self.ev3_functions = ['grab_something', 'wave', 'drop_item_in_hand',"open_chest", "close_chest"]
 
 

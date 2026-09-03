@@ -21,7 +21,7 @@ def main():
     abe.wait_for_key_insert()
     print("[main] Starting...")
     gemini = gemini_functions.AI()
-    vision = vision_functons.Vision(abe, USE_MINDSTORMS)
+    vision = vision_functons.Vision(abe, USE_MINDSTORMS, debug_level=2)
     vision.start_camera_windows_loop(thread=True)
     functionHandeler = extra_functions.function_calling_handeler(abe, vision)
     if USE_MIC:

@@ -15,6 +15,7 @@ else:
 import numpy
 import cvzone.FaceDetectionModule
 import cvzone.HandTrackingModule
+import sys
 
 class Camera:
     black_img = numpy.zeros((720, 1280, 3), numpy.uint8)
@@ -33,6 +34,8 @@ class Camera:
         self.latest_frame = numpy.zeros((720, 1280, 3), numpy.uint8)
 
         self.black_frame = numpy.zeros((720, 1280, 3), numpy.uint8)
+
+        self.run = True
 
         cv2.putText(self.black_frame, "CAMERA NOT CONNECTED", (360, 360), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 1, cv2.LINE_AA)
         cv2.rectangle(self.black_frame, (325, 280), (925, 400), (255, 255, 2550), 2,  cv2.LINE_AA)
@@ -108,9 +111,10 @@ class Camera:
                 return frame
             else:
                 if self.force:
-                    return self.black_frame
+                    return cv2.flip(self.black_frame, 1)
                 else:
                     return None
+                
         elif self.type == "placeholder_camera":
             if self.force:
                 return self.black_frame
@@ -118,12 +122,19 @@ class Camera:
                 return None
 
     def _loop(self):
-        while True:
+        while self.run:
             self.latest_frame = self.get_frame()
             time.sleep(.01)
 
     def start_capture_loop(self):
         threading.Thread(target=self._loop).start()
+
+    def close(self):
+        if self.type == 'raspberry_pi_camera':
+            self.cam.close()
+        elif self.type == 'regular_camera':
+            self.cam.release()
+                
 
 class Vision:
     def __init__(self, abe : object = None, use_mindstorms=None, debug_level=1):
@@ -143,6 +154,8 @@ class Vision:
         self.abe = abe
 
         self.debug_level = debug_level
+
+        self.Hand = None
 
         self.use_front_camera = self.config["use_front_camera"]
         self.use_desk_camera = self.config["use_desk_camera"]
@@ -213,7 +226,7 @@ class Vision:
                     continue
 
 
-                if self.camera_tracking_mode == 'face':
+                if self.camera_tracking_mode.lower() == 'face':
                     _, self.results = self.face_tracking.findFaces(self.frame, draw=False)
                     if self.results:
                         self.tracking = True
@@ -222,7 +235,7 @@ class Vision:
                         self.bbox = self.result["bbox"]   
 
 
-                elif self.camera_tracking_mode in ['hands', 'left hand', 'right hand']:
+                elif self.camera_tracking_mode.lower() in ['hands', 'left hand', 'right hand']:
                     self.results, _ = self.hand_tracking.findHands(self.frame, draw=False)
                     if self.results:
 
@@ -231,7 +244,7 @@ class Vision:
                             self.label = 'Hand'
                             self.result = self.results[0]
                             self.bbox = self.result["bbox"]            
-
+    
                         else:
                             if self.camera_tracking_mode == 'left hand':
                                 search = 'Left'
@@ -241,6 +254,7 @@ class Vision:
                                 self.label = 'Right Hand'
                             for hand in self.results:
                                 if hand['type'] == search:
+                                    self.Hand = hand
                                     self.tracking = True
                                     self.bbox = hand["bbox"]            
                                     break
@@ -290,18 +304,7 @@ class Vision:
             self.output = self.output + "a " + str(self.result.names[int(x.cls)] + ", ")
         return self.output
 
-    def text_in_trigger_words(self, text : str=''):
-        """
-        Decides whether or not a vision trigger word is in 'text'.
-        Returns the result as a bool AND the word that was in 'text'.
-        """ 
-        for trigger_word in self.vision_trigger_words:
-            if trigger_word in text:
-                return True, trigger_word
-        if "hello" in text or "hi " in text: 
-            if random.randrange(0, 1) == 0:
-                return True, "hello / hi"
-        return False, None
+
     def get_gemini_img(self):
         """
         Returns: a frame to send to gemini based on config prefrences
@@ -314,22 +317,46 @@ class Vision:
             if self.debug_level > 0:
                 print_red(f"[vision_functions] [ERROR] 'gemini_camera' in config must be either 'front' or 'desk', not {self.config['gemini_camera' ]}!")
             return Camera.black_img
-    def complete_vision_function(self, function : str=''):
+    def look_at_face(self):
         """
-        Completes one of the vision functions.
+        Starts tracking the user's face if it detects one.
+        his function doesn't return anything, and doesn't take any args.
         """
-        if function == 'look_at_one_of_users_hands':
+        if self.debug_level > 0:
+            print(f"[vision_functions] Called the face tracking function.")
+        
+        self.camera_tracking_mode = 'face'
+
+    def look_at_hand(self, hand:str):
+        """Starts look at user's hand if it detects one.
+        Args:
+            hand: The hand you want to track. This may be one of the following: 'left_hand', 'right_hand', or 'either_one'
+        """
+        if self.debug_level > 0:
+            print(f"[vision_functions] Called the hand tracking function for {hand}.")
+        
+        if hand == 'either_one':
             self.camera_tracking_mode = 'hands'
-        elif function == 'look_at_users_left_hand':
+        elif hand == 'left_hand':
             self.camera_tracking_mode = 'left hand'
-        elif function == 'look_at_users_right_hand':
+        elif hand == 'right_hand':
             self.camera_tracking_mode = 'right hand'
-        elif function == 'look_at_users_face':
-            self.camera_tracking_mode = 'face'
         else:
             if self.debug_level > 0:
-                print_red(f"[vision_functions] [ERROR] Unknown vision function: {function}")
+                (f"[vision_functions] [ERROR] Uknown hand: {hand}!")
+                
+        
+    def close(self):
+        self.run_camera_loop =  False
+        time.sleep(.5)
+        self.desk_camera.run = False
+        self.front_camera.run = False
+        self.desk_camera.close()
+        self.front_camera.close()
+        cv2.destroyAllWindows()
+        sys.exit()
 
+        
 if __name__ == "__main__":
     vision = Vision(debug_level=2)
     vision.start_camera_windows_loop()

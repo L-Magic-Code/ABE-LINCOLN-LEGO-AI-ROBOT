@@ -12,6 +12,6 @@
         "honest abe"
     ],
     "vosk_file_type": "small",
-    "vosk_small_file": "PROJECT_ROOT/External_Files/vosk-small-model",
-    "vosk_large_file": "PROJECT_ROOT//vosk-large-model"
+    "vosk_small_file": "External_Files/vosk-small-model",
+    "vosk_large_file": "External_Files/vosk-large-model"
 }

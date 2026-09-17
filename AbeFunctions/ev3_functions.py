@@ -13,6 +13,7 @@ import nxt.motor
 import tempfile
 import pathlib
 import math
+import pygame
 
 class Abe:
     """Connects to both ev3s, and sets up motors and sensors, if use_mindstorms in the ev3_config is True."""
@@ -23,6 +24,7 @@ class Abe:
 
         self.use_mindstorms = use_mindstorms
         BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
+        self.clapping_sound_file = BASE_DIR / "External_Files" / "clapping.mp3"
         self.pathlib_config_file = BASE_DIR / "External_Files" / "Config" / "ev3_config.json"
         with open(self.pathlib_config_file, "r", encoding="utf-8") as ev3_config_file:
             self.config =  json.load(ev3_config_file)
@@ -32,14 +34,14 @@ class Abe:
                 self.ev3_head_hub = ev3.Jukebox(protocol=ev3.USB, host=self.config["EV3_HEAD_HUB_ADDRESS"])
                 print("[ev3_functions] Connected to head hub!")
             except ev3.exceptions.NoEV3:
-                raise Exception("Abe's right hub isn't connected or powered on!")
+                raise Exception("Abe's head hub isn't connected or powered on!")
 
 #           -- Connect to EV3 arms hub --
             try:
                 self.ev3_arms_hub = ev3.Jukebox(protocol=ev3.USB, host=self.config["EV3_ARMS_HUB_ADDRESS"])
                 print("[ev3_functions] Connected to ev3 arm hub!")
             except ev3.exceptions.NoEV3:
-                raise Exception("Abe's left hub isn't connected or powered on!")
+                raise Exception("Abe's ev3 arm hub isn't connected or powered on!")
 
 #           -- Conect to NXT arms hub --
             try:
@@ -67,8 +69,8 @@ class Abe:
             self.right_arm = ev3.Motor(port=getattr(ev3, self.config["RIGHT_ARM_PORT"]), ev3_obj=self.ev3_arms_hub)
             self.right_hand = ev3.Motor(port=getattr(ev3, self.config["RIGHT_HAND_PORT"]), ev3_obj=self.ev3_arms_hub)
 
-            self.left_fingers = ev3.Touch(port=getattr(ev3, self.config["LEFT_FINGERS_PORT"]), ev3_obj=self.ev3_head_hub)
-            self.right_fingers  = ev3.Touch(port=getattr(ev3, self.config["RIGHT_FINGERS_PORT"]), ev3_obj=self.ev3_head_hub)
+            self.left_fingers = ev3.Color(port=getattr(ev3, self.config["LEFT_FINGERS_PORT"]), ev3_obj=self.ev3_head_hub)
+            self.right_fingers  = ev3.Color(port=getattr(ev3, self.config["RIGHT_FINGERS_PORT"]), ev3_obj=self.ev3_head_hub)
             self.key_sensor  = ev3.Touch(port=getattr(ev3, self.config["EV3_KEY_PORT"]), ev3_obj=self.ev3_head_hub)
                         
 
@@ -92,7 +94,6 @@ class Abe:
             self.reading = False
             self.move_scared = True
 
-
             print("[ev3_functions] All hubs, motors, and sensors connected!")
         else:
             self.current_emotion = 'neutral'
@@ -102,17 +103,17 @@ class Abe:
         self.current_emotion = 'neutral'
         self.VOICE_MODEL = self.config["voice"]
         self.available_emotions = ["happy", "sad", "mad", "neutral", "surprised-happy", "surprised-mad", "sarcastic"]
+        pygame.mixer.init()
 
         
-    def move_to_position_nxt(self, motor, degrees, speed):
+    def move_to_position_nxt(self, motor, degrees, speed, timeout=1):
         if self.use_mindstorms:
             self.current_motor_position = motor.get_tacho().rotation_count
             self.result = self.current_motor_position - degrees
             if self.result < 0:
-                motor.turn(power=speed * -1,  tacho_units=abs(self.result))
+                motor.turn(power=speed * -1,  tacho_units=abs(self.result), timeout=timeout)
             elif self.result > 0:
-                motor.turn(power=speed, tacho_units=degrees)
-        return self.eyes.busy
+                motor.turn(power=speed, tacho_units=degrees, timeout=timeout)
 
     def move_to_neutral(self, thread=False, brake=True, move_eyebrows=True):
         if self.use_mindstorms:
@@ -262,6 +263,15 @@ class Abe:
             except:
                 pass
 
+            self.left_arm.stop(brake=False)
+            self.right_arm.stop(brake=False)
+            time.sleep(2)
+            self.left_arm.move_by(-10, speed=65)
+            self.right_arm.move_by(-10, speed=65)
+            self.left_arm.stop(brake=True)
+            self.right_arm.stop(brake=True)
+                        
+
             if self.debug_level > 1:
                 print("[ev3_functions] [debug] Homed arms!")
 
@@ -269,8 +279,9 @@ class Abe:
         """
         Wait for the key to be inserted.
         """
-        while not self.key_sensor.touched:
-            time.sleep(0.1)
+        if self.use_mindstorms:
+            while not self.key_sensor.touched:
+                time.sleep(0.1)
             
     def say(self, text:str, degrees_add:int=0, intensity_add:int=0, emotion=None):
         """
@@ -416,21 +427,21 @@ class Abe:
 
         with open(self.pathlib_config_file, "w", encoding="utf-8") as file:
             json.dump(self.config, file, indent=4)
-                        
+
     def grab(self):
         if self.use_mindstorms:
             if self.right_hand_empty:
                 self.open_hand(self.right_hand)
-                while not self.right_fingers.touched:
-                    time.sleep(.01)
+                while self.right_fingers.reflected < self.config["reflected_light_threshold"]:
+                    time.sleep(.1)
                 self.close_hand(self.right_hand)
                 self.right_hand_empty = False
                 self.change_config("right_hand_empty", False)
                 return True
             elif self.left_hand_empty:
                 self.open_hand(self.left_hand)
-                while not self.left_fingers.touched:
-                    time.sleep(.01)
+                while self.left_fingers.reflected < self.config["reflected_light_threshold"]:
+                    time.sleep(.1)
                 self.close_hand(self.left_hand)
                 self.left_hand_empty = False
                 self.change_config("left_hand_empty", False)
@@ -522,7 +533,7 @@ class Abe:
             except Exception:
                 pass
 
-    def rotate_arm(self, arm, position=2):
+    def rotate_arm(self, arm, position=2, handel_error=False, timeout=1):
         """
         Rotates abe's arm, which may be either 'left' or 'right'.
         position can be an int from 1-5
@@ -531,9 +542,15 @@ class Abe:
             if not position in [1, 2, 3, 4, 5]:
                 position = 3
             if arm == 'left':
-                self.move_to_position_nxt(self.left_arm_rotate, position * 54, speed=50)
+                try:
+                    self.move_to_position_nxt(self.left_arm_rotate, position * 54, speed=50, timeout=timeout)
+                except Exception:
+                    pass
             elif arm == 'right':
-                self.move_to_position_nxt(self.right_arm_rotate, position * 54 , speed=50)
+                try:
+                    self.move_to_position_nxt(self.right_arm_rotate, position * 54 , speed=50, timeout=timeout)
+                except Exception:
+                      pass  
             else:
                 if self.debug_level > 1:
                     print(f"[ev3_functions] [debug] [rotate_arm()] Unknown arm: {arm}")
@@ -547,16 +564,47 @@ class Abe:
             if not position in [0, 1, 2, 3]:
                 position = 2
             if arm == 'left':
-                self.left_arm.move_to(position * -200, speed=75).start(thread=False)
+                self.left_arm.move_to(position * -200, speed=75, brake=True).start(thread=False)
             elif arm == 'right':
-                self.right_arm.move_to(position * -200, speed=75).start(thread=False)
+                self.right_arm.move_to(position * -200, speed=75, brake=True).start(thread=False)
             else:
                 if self.debug_level > 1:
                     print(f"[ev3_functions] [debug] [move_arm()] Unknown arm: {arm}")
 
     def wave(self):
         if self.use_mindstorms:
-            self.move_arm()
+            self.move_arm('right', 3)
+
+    def _clapping(self):
+        if self.use_mindstorms:
+            self.move_arm('right', 1)
+            self.move_arm('left', 1)
+            while self.is_clapping:
+                self.left_hand.start_move(speed=100)
+                self.right_hand.start_move(speed=100)
+            self.left_hand.stop(brake=True)
+            self.right_hand.stop(brake=True)
+            self.open_hand(self.right_hand)
+            self.open_hand(self.left_hand)
+
+            self.move_arm('right', 0)
+            self.move_arm('left', 0)
+
+    def clap(self):
+        """
+        Plays a clapping sound effect and moves your arms acordingly.
+        There are no arguments and the function will not return anything.
+        """
+
+        clapping = pygame.mixer.Sound(self.clapping_sound_file).play()
+
+        if self.use_mindstorms:
+            self.is_clapping = True
+            threading.Thread(target=self._clapping).start()
+        while clapping.get_busy():
+            time.sleep(1)
+        self.is_clapping = False
+            
 
     def complete_mindstorms_function(self, function : str=''):
         """
@@ -589,6 +637,36 @@ class Abe:
                 if not self.left_hand_empty:
                     self.open_hand(self.left_hand)
 
+    def move_hand_rps(self, rps, hand):
+        if self.use_mindstorms:
+            self.move_arm(hand, 2)
+            if hand == 'left':
+                if rps == 'rock':
+                    self.rotate_arm(hand, 3, True)
+                    self.close_hand(self.left_hand)
+                elif rps == 'paper':
+                    self.rotate_arm(hand, 1, True)
+                    self.open_hand(self.left_hand)
+                elif rps == 'scissors':
+                    self.rotate_arm(hand, 4, True)
+                    self.open_hand(self.left_hand)
+            elif hand == 'right':
+                if rps == 'rock':
+                    self.rotate_arm(hand, 3, True)
+                    self.close_hand(self.right_hand)
+                elif rps == 'paper':
+                    self.rotate_arm(hand, 1, True)
+                    self.open_hand(self.right_hand)
+                elif rps == 'scissors':
+                    self.rotate_arm(hand, 4, True)
+                    self.open_hand(self.right_hand)
+            time.sleep(2)
+            self.move_arm(hand, 0)
+
+
+
+
+
 if __name__ == "__main__":
     abe = Abe(use_mindstorms=True, debug_level=2)
 
@@ -597,14 +675,16 @@ if __name__ == "__main__":
     abe.home_motors()
     time.sleep(1)
 
-    '''print("===== MOVING TO EMOTION 'happy' =====")
+    print("===== MOVING TO EMOTION 'happy' =====")
     abe.move_to_emotion('happy')
     time.sleep(2)
 
     print("===== TESTING VOICE AND MOUTH =====")
-    abe.say("Hello, Joey! I am Abraham Lincoln the robot! It's nice to meet you!")
-    time.sleep(2)'''
+    abe.say("Hello, There! I am Abraham Lincoln the robot! It's nice to meet you!")
+    time.sleep(2)
 
+    abe.clap()
+'''
 
     abe.move_arm('left', 3)
     abe.move_arm('right', 3)
@@ -625,12 +705,12 @@ if __name__ == "__main__":
 
 
 
-    '''print("===== MOVING TO EMOTION 'mad' =====")
+    print("===== MOVING TO EMOTION 'mad' =====")
     abe.move_to_emotion('mad')
-    time.sleep(2)'''
+    time.sleep(2)
 
     
-'''
+
     print("===== MOVING TO EMOTION 'sad' =====")
     abe.move_to_emotion('sad')
     abe.say("I am very sad right now")

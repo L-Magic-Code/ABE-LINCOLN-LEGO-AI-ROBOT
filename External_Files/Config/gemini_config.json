@@ -2,5 +2,6 @@
     "prompt_file_path": "External_Files/ai_prompt.txt",
     "chat_history_file_path": "External_Files/chat_history.txt",
     "gemini_model": "gemini-2.5-flash",
-    "path_to_gemini_api_key": "GEMINI_API_KEY_FILE"
+    "path_to_gemini_api_key": "GEMINI_API_KEY_FILE",
+    "save_history" : true
 }

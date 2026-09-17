@@ -5,11 +5,13 @@ import time
 import pathlib
 
 class Mic:
-    def __init__(self, debug_level=1):
+    def __init__(self, use_mic, debug_level=1):
         """
         Returns Mic.
         Debug level can be 0, 1, or 2.
         """
+        self.is_on = use_mic
+
         self.debug_level = debug_level
         if self.debug_level > 1:
             print("[mic_functions] [Info_debug] Starting...")
@@ -27,7 +29,9 @@ class Mic:
         else:
             raise Exception("There is no defined vosk_file_type in the config file, or it is a typo!")  
 
-        self.model = vosk.Model(self.VOSK_MODEL_PATH)
+        self.VOSK_MODEL_PATH = BASE_DIR / pathlib.Path(self.VOSK_MODEL_PATH)
+
+        self.model = vosk.Model(str(self.VOSK_MODEL_PATH))
         self.recognizer = vosk.KaldiRecognizer(self.model, 16000)
 
         if self.debug_level > 1:
@@ -36,6 +40,7 @@ class Mic:
         self.what_was_last_said = ''
         self.what_was_just_said = ''
         self._isListening = False
+        self.listen = True
 
         if self.debug_level > 0:
             print("[mic_functions] [Debug] Succesfully set up vosk speech recognizer!")
@@ -49,12 +54,14 @@ class Mic:
             callback=self._callback)
         self.mic.start()
         self._isListening = True
+        self.is_on = True
         
     def _callback(self, indata, frames, time, status):
-        if self.recognizer.AcceptWaveform(bytes(indata)):
-            self.result = self.recognizer.Result()
-            self.dict_result = json.loads(self.result)
-            self.what_was_just_said = self.dict_result['text']
+        if self.listen:
+            if self.recognizer.AcceptWaveform(bytes(indata)):
+                self.result = self.recognizer.Result()
+                self.dict_result = json.loads(self.result)
+                self.what_was_just_said = self.dict_result['text']
 
     def get_speech(self) -> str:
         if self.what_was_last_said != self.what_was_just_said:
@@ -83,10 +90,15 @@ class Mic:
             for trigger in trigList:
                 if trigger in self.text:
                     return trigger
-            
+
+    def pause_listening(self):
+        self.is_on = False
+        self.mic.stop()
+
     def close(self):
         self.mic.stop()
         self._isListening = False
+        self.is_on = False
         
 if __name__ == '__main__':
     mic = Mic()
